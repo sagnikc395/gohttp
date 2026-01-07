@@ -32,7 +32,7 @@ func main() {
 
 		data = data[:n]
 
-		if i := bytes.IndexByte(data, '\n'); i != 0 {
+		if i := bytes.IndexByte(data, '\n'); i != -1 {
 			str += string(data[:i])
 			data = data[i+1:]
 			fmt.Printf("read: %s\n", str)
