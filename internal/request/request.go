@@ -1,11 +1,19 @@
 package request
 
-import (
-	"testing"
+import "io"
 
-	"github.com/stretchr/testify/assert"
-)
+type RequestLine struct {
+	HttpVersion   string
+	RequestTarget string
+	Method        string
+}
 
-func TestRequestLineParse(t *testing.T) {
-	assert.Equal(t, "TheTestagen", "theTestagen")
+type Request struct {
+	RequestLine RequestLine
+	// Headers     map[string]string
+	// Body        []byte
+}
+
+func RequestFromReader(reader io.Reader) (*Request, error) {
+	
 }
