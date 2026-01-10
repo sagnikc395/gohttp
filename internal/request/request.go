@@ -15,5 +15,5 @@ type Request struct {
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	
+
 }
