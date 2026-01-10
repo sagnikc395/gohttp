@@ -1,8 +1,6 @@
 package request
 
 import (
-	"errors"
-	"fmt"
 	"io"
 	"strings"
 )
@@ -17,7 +15,21 @@ type Request struct {
 	RequestLine RequestLine
 	// Headers     map[string]string
 	// Body        []byte
+	State parserState
 }
+
+func newRequest() *Request {
+	return &Request{
+		State: StateInit,
+	}
+}
+
+type parserState string
+
+const (
+	StateInit parserState = "init"
+	StateDone parserState = "done"
+)
 
 func parseRequestLine(b string) (*RequestLine, string, error) {
 	idx := strings.Index(b, SEPERATOR)
@@ -57,22 +69,40 @@ func parseRequestLine(b string) (*RequestLine, string, error) {
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, errors.Join(
-			fmt.Errorf("unable to io.ReadAll"),
-			err,
-		)
+	request := newRequest()
+
+	//TODO: buffer could get overrun ...
+	// a header that exceeds 1k or a body
+	buf := make([]byte, 1024)
+	//n := 0
+	bufIdx := 0
+	for !request.done() {
+		//simulate reading slowly over time , dont want to read all at once
+		// the body parsing doesnt need to happen right away
+
+		n, err := reader.Read(buf[bufIdx:])
+		if err != nil {
+			return nil, err
+		}
+
+		//new posn of bufIdx
+		bufIdx += n
+
+		readN, err := request.parse(buf[:bufIdx+n])
+		if err != nil {
+			return nil, err
+		}
+		copy(buf, buf[readN:bufIdx])
+		bufIdx -= readN
 	}
 
-	str := string(data)
-
-	rl, _, err := parseRequestLine(str)
-	if err != nil {
-		return nil, err
-	}
-	return &Request{
-		RequestLine: *rl,
-	}, err
+	return request, nil
 }
- 
+
+func (r *Request) parse(data []byte) (int, error) {
+
+}
+
+func (r *Request) done() bool {
+	return r.State == StateDone
+}
