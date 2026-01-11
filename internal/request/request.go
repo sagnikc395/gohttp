@@ -26,11 +26,6 @@ func newRequest() *Request {
 
 type parserState string
 
-const (
-	StateInit parserState = "init"
-	StateDone parserState = "done"
-)
-
 func parseRequestLine(b []byte) (*RequestLine, int, error) {
 	idx := bytes.Index(b, SEPERATOR)
 	if idx == -1 {
@@ -106,8 +101,21 @@ func (r *Request) parse(data []byte) (int, error) {
 outer:
 	for {
 		switch r.State {
+		case StateError:
+			return 0, ERROR_REQUEST_IN_ERROR_STATE
 		case StateInit:
+			rl, n, err := parseRequestLine(data[read:])
+			if err != nil {
+				r.State = StateError
+				return 0, err
+			}
+			if n == 0 {
+				break outer
+			}
+			r.RequestLine = *rl
+			read += n
 
+			r.State = StateDone
 		case StateDone:
 			break outer
 		}
@@ -117,5 +125,5 @@ outer:
 }
 
 func (r *Request) done() bool {
-	return r.State == StateDone
+	return r.State == StateDone || r.State == StateError
 }
