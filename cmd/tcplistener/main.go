@@ -6,6 +6,8 @@ import (
 	"io"
 	"log"
 	"net"
+
+	"github.com/sagnikc395/gohttp/internal/request"
 )
 
 func getLinesChannel(f io.ReadCloser) <-chan string {
@@ -48,10 +50,17 @@ func main() {
 		if err != nil {
 			log.Fatal("error", "error", err)
 		}
-		for line := range getLinesChannel(conn) {
-			fmt.Printf("read: %s\n", line)
+		// for line := range getLinesChannel(conn) {
+		// 	fmt.Printf("read: %s\n", line)
+		// }
+		req, err := request.RequestFromReader(conn)
+		if err != nil {
+			log.Fatal("error", "error", err)
 		}
+		fmt.Printf("Request line:\n")
+		fmt.Printf("- Method: %s\n", req.RequestLine.Method)
+		fmt.Printf("- Target: %s\n", req.RequestLine.RequestTarget)
+		fmt.Printf("- Version: %s\n", req.RequestLine.HttpVersion)
 	}
 
 }
- 
