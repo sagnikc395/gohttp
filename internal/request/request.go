@@ -39,7 +39,7 @@ func parseRequestLine(b []byte) (*RequestLine, int, error) {
 	}
 
 	startLine := b[:idx]
-	restOfMsg := b[idx+len(SEPERATOR):]
+	//restOfMsg := b[idx+len(SEPERATOR):]
 	read := idx + len(SEPERATOR)
 
 	parts := bytes.Split(startLine, []byte(" "))
@@ -60,12 +60,12 @@ func parseRequestLine(b []byte) (*RequestLine, int, error) {
 	}
 
 	rl := &RequestLine{
-		Method:        parts[0],
-		RequestTarget: parts[1],
-		HttpVersion:   httpParts[1],
+		Method:        string(parts[0]),
+		RequestTarget: string(parts[1]),
+		HttpVersion:   string(httpParts[1]),
 	}
 
-	return rl, restOfMsg, nil
+	return rl, read, nil
 
 }
 
