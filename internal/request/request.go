@@ -1,8 +1,8 @@
 package request
 
 import (
+	"bytes"
 	"io"
-	"strings"
 )
 
 type RequestLine struct {
@@ -31,31 +31,32 @@ const (
 	StateDone parserState = "done"
 )
 
-func parseRequestLine(b string) (*RequestLine, string, error) {
-	idx := strings.Index(b, SEPERATOR)
+func parseRequestLine(b []byte) (*RequestLine, int, error) {
+	idx := bytes.Index(b, SEPERATOR)
 	if idx == -1 {
 		//not found the start line, return nil
-		return nil, b, nil
+		return nil, 0, nil
 	}
 
 	startLine := b[:idx]
 	restOfMsg := b[idx+len(SEPERATOR):]
+	read := idx + len(SEPERATOR)
 
-	parts := strings.Split(startLine, " ")
+	parts := bytes.Split(startLine, []byte(" "))
 	if len(parts) != 3 {
-		return nil, restOfMsg, ERROR_MALFORMED_REQUEST_LINE
+		return nil, 0, ERROR_MALFORMED_REQUEST_LINE
 	}
 
-	parts = strings.Split(parts[2], "/")
+	parts = bytes.Split(parts[2], []byte("/"))
 
 	if len(parts) != 3 {
-		return nil, restOfMsg, ERROR_MALFORMED_REQUEST_LINE
+		return nil, 0, ERROR_MALFORMED_REQUEST_LINE
 	}
 
 	//HTTP validation , should be 1.1 only
-	httpParts := strings.Split(parts[2], "/")
-	if len(httpParts) != 2 || httpParts[0] != "HTTP" || httpParts[1] != "1.1" {
-		return nil, restOfMsg, ERROR_MALFORMED_REQUEST_LINE
+	httpParts := bytes.Split(parts[2], []byte("/"))
+	if len(httpParts) != 2 || string(httpParts[0]) != "HTTP" || string(httpParts[1]) != "1.1" {
+		return nil, 0, ERROR_MALFORMED_REQUEST_LINE
 	}
 
 	rl := &RequestLine{
@@ -100,6 +101,18 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 }
 
 func (r *Request) parse(data []byte) (int, error) {
+
+	read := 0
+outer:
+	for {
+		switch r.State {
+		case StateInit:
+
+		case StateDone:
+			break outer
+		}
+	}
+	return read, nil
 
 }
 
