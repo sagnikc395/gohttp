@@ -45,6 +45,8 @@ func (h Headers) Parse(data []byte) (int, bool, error) {
 			break
 		}
 
+		fmt.Printf("header: \"%s\"\n", string(data[read:idx]))
+
 		name, value, err := parseHeader(data[:idx])
 		if err != nil {
 			return 0, false, err
@@ -54,3 +56,4 @@ func (h Headers) Parse(data []byte) (int, bool, error) {
 	}
 	return read, done, nil
 }
+ 

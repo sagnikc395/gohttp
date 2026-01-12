@@ -2,7 +2,10 @@ package request
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+
+	"github.com/sagnikc395/gohttp/internal/headers"
 )
 
 type RequestLine struct {
@@ -13,9 +16,8 @@ type RequestLine struct {
 
 type Request struct {
 	RequestLine RequestLine
-	// Headers     map[string]string
-	// Body        []byte
-	State parserState
+	Headers     headers.Headers
+	State       parserState
 }
 
 func newRequest() *Request {
@@ -23,6 +25,15 @@ func newRequest() *Request {
 		State: StateInit,
 	}
 }
+
+var SEPERATOR = []byte("\r\n")
+
+const (
+	StateInit    parserState = "init"
+	StateHeaders parserState = "headers"
+	StateDone    parserState = "done"
+	StateError   parserState = "error"
+)
 
 type parserState string
 
@@ -42,25 +53,17 @@ func parseRequestLine(b []byte) (*RequestLine, int, error) {
 		return nil, 0, ERROR_MALFORMED_REQUEST_LINE
 	}
 
-	parts = bytes.Split(parts[2], []byte("/"))
-
-	if len(parts) != 3 {
-		return nil, 0, ERROR_MALFORMED_REQUEST_LINE
+	//Splitting the "HTTP/1.1" into ["HTTP","1.1"]
+	protoParts := bytes.Split(parts[2], []byte("/"))
+	if len(protoParts) != 2 || string(protoParts[0]) != "HTTP" {
+		return nil, 0, ERROR_UNSUPORTED_HTTP_VERSION
 	}
 
-	//HTTP validation , should be 1.1 only
-	httpParts := bytes.Split(parts[2], []byte("/"))
-	if len(httpParts) != 2 || string(httpParts[0]) != "HTTP" || string(httpParts[1]) != "1.1" {
-		return nil, 0, ERROR_MALFORMED_REQUEST_LINE
-	}
-
-	rl := &RequestLine{
+	return &RequestLine{
 		Method:        string(parts[0]),
 		RequestTarget: string(parts[1]),
-		HttpVersion:   string(httpParts[1]),
-	}
-
-	return rl, read, nil
+		HttpVersion:   string(protoParts[1]),
+	}, read, nil
 
 }
 
@@ -77,50 +80,70 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		// the body parsing doesnt need to happen right away
 
 		n, err := reader.Read(buf[bufIdx:])
+		if n > 0 {
+			bufIdx += n
+			readN, parseErr := request.parse(buf[:bufIdx])
+			if parseErr != nil {
+				return nil, parseErr
+			}
+
+			//sliding over the buffer and removing what waas consumed
+			if readN > 0 {
+				copy(buf, buf[readN:bufIdx])
+				bufIdx -= readN
+			}
+		}
 		if err != nil {
+			if err == io.EOF && !request.done() {
+				return nil, fmt.Errorf("connection closed before request finished")
+			}
 			return nil, err
 		}
-
-		//new posn of bufIdx
-		bufIdx += n
-
-		readN, err := request.parse(buf[:bufIdx+n])
-		if err != nil {
-			return nil, err
-		}
-		copy(buf, buf[readN:bufIdx])
-		bufIdx -= readN
 	}
-
 	return request, nil
 }
 
 func (r *Request) parse(data []byte) (int, error) {
 
-	read := 0
-outer:
+	readTotal := 0
+
 	for {
 		switch r.State {
 		case StateError:
 			return 0, ERROR_REQUEST_IN_ERROR_STATE
 		case StateInit:
-			rl, n, err := parseRequestLine(data[read:])
+			rl, n, err := parseRequestLine(data[readTotal:])
 			if err != nil {
 				r.State = StateError
 				return 0, err
 			}
 			if n == 0 {
-				break outer
+				return readTotal, nil
 			}
 			r.RequestLine = *rl
-			read += n
+			readTotal += n
+			r.State = StateHeaders
 
-			r.State = StateDone
+		case StateHeaders:
+			n, done, err := r.Headers.Parse(data[readTotal:])
+			if err != nil {
+				r.State = StateError
+				return 0, err
+			}
+			readTotal += n
+			if done {
+				r.State = StateDone
+				return readTotal, nil
+			}
+			//not enough data for full headers yet
+			return readTotal, nil
 		case StateDone:
-			break outer
+			return readTotal, nil
+
+		default:
+			return 0, ERROR_REQUEST_IN_ERROR_STATE
 		}
 	}
-	return read, nil
 
 }
 
