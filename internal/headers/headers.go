@@ -31,29 +31,27 @@ func parseHeader(fieldLine []byte) (string, string, error) {
 
 func (h Headers) Parse(data []byte) (int, bool, error) {
 	read := 0
-	done := false
 
 	for {
 		idx := bytes.Index(data[read:], rn)
 		if idx == -1 {
-			break
+			return read, false, nil
 		}
 
-		//empty header
+		//check for the empty line (end of headers)
 		if idx == 0 {
-			done = true
-			break
+			read += len(rn)
+			return read, true, nil
 		}
 
-		fmt.Printf("header: \"%s\"\n", string(data[read:idx]))
-
-		name, value, err := parseHeader(data[:idx])
+		//data[read: read+idx] to get the Key:Value line
+		line := data[read : read+idx]
+		name, value, err := parseHeader(line)
 		if err != nil {
 			return 0, false, err
 		}
-		read += idx + len(rn)
+
 		h[name] = value
+		read += idx + len(rn)
 	}
-	return read, done, nil
 }
- 

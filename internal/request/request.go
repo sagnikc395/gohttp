@@ -22,7 +22,8 @@ type Request struct {
 
 func newRequest() *Request {
 	return &Request{
-		State: StateInit,
+		State:   StateInit,
+		Headers: make(headers.Headers),
 	}
 }
 
